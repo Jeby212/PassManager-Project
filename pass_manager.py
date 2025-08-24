@@ -3,16 +3,40 @@ useCase = ''
 user = ''
 pw = ''
 
+import base64
+from itertools import cycle
+
+MASTER = input("Enter a master password (remember it):\n")
+
+def _xor_bytes(data: bytes, key: bytes) -> bytes:
+    return bytes(d ^ k for d, k in zip(data, cycle(key)))
+
+def encrypt(txt: str, key: str) -> str:
+    return base64.b64encode(_xor_bytes(txt.encode("utf-8"), key.encode("utf-8"))).decode("ascii")
+
+def decrypt(token: str, key: str) -> str:
+    return _xor_bytes(base64.b64decode(token), key.encode("utf-8")).decode("utf-8", errors="ignore")
+
+def try_decrypt(token: str, key: str) -> str:
+    try:
+        return decrypt(token, key)
+    except Exception:
+        return token 
+
 def addPassword():
     useCase = input("Which service do you want to store this password for?\n")
     user = input("Please enter your username.\n")
     pw = input("Please enter your password.\n")
-    lines = [useCase + '\n', user + '\n', pw + '\n']
+    lines = [
+        encrypt(useCase, MASTER) + '\n',
+        encrypt(user, MASTER) + '\n',
+        encrypt(pw, MASTER) + '\n',
+    ]
     file = open(filepath, 'a')
     file.writelines(lines)
 
 addPassword()
 
 with open(filepath, 'r') as fr:
-    info = fr.read().splitlines()
+    info = [try_decrypt(x, MASTER) for x in fr.read().splitlines()]
     print(info)
